@@ -79,6 +79,34 @@ mkdir -p "$DMG_STAGE"
 cp -R "$APP_BUNDLE" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
 
+# 首次打开说明，直接摆进 dmg 窗口，避免用户被「无法验证开发者」劝退
+cat > "$DMG_STAGE/⚠️首次打开必读.txt" <<'TXT'
+LockType 首次打开说明
+====================
+
+本 App 未购买 Apple 开发者证书（未公证），首次打开会被系统拦一下，
+这是正常现象，只需处理「一次」，之后双击即可正常使用。
+
+—— 最快（推荐）：终端跑一行命令 ——
+打开「终端」，粘贴下面这行回车（拖进去后会无任何弹窗直接打开）：
+
+    xattr -dr com.apple.quarantine /Applications/LockType.app
+
+（先把 LockType.app 拖到「应用程序」文件夹，再跑上面这行）
+
+—— 或者用图形界面 ——
+• macOS 15 (Sequoia) 及以上：
+    双击打开 → 弹出「未能打开」→ 打开
+    系统设置 → 隐私与安全性 → 滑到底部
+    → 点「仍要打开」→ 再确认一次
+    （新系统已取消「右键打开」绕过方式，必须走系统设置）
+
+• macOS 14 (Sonoma) 及以下：
+    右键（或按住 Control 点击）LockType.app → 打开 → 再点「打开」
+
+装好后菜单栏会出现一个锁图标，就成功了。
+TXT
+
 hdiutil create \
     -volname "$APP_NAME" \
     -srcfolder "$DMG_STAGE" \
