@@ -79,10 +79,14 @@ mkdir -p "$DMG_STAGE"
 cp -R "$APP_BUNDLE" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
 
-# 首次打开说明，直接摆进 dmg 窗口，避免用户被「无法验证开发者」劝退
-cat > "$DMG_STAGE/⚠️首次打开必读.txt" <<'TXT'
-LockType 首次打开说明
-====================
+# 首次打开说明：文件名本身就是操作指引（不用打开就能照做），内容是完整详情
+README_NAME='⚠️打不开就去-系统设置·隐私与安全性·点"仍要打开".txt'
+cat > "$DMG_STAGE/$README_NAME" <<'TXT'
+LockType 打不开？这是正常的，处理一次即可
+==========================================
+
+文件名就是最快办法：到「系统设置 → 隐私与安全性」滑到底，
+点那行被拦住的 LockType 旁边的「仍要打开」按钮。
 
 本 App 未购买 Apple 开发者证书（未公证），首次打开会被系统拦一下，
 这是正常现象，只需处理「一次」，之后双击即可正常使用。
