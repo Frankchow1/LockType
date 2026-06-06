@@ -1,0 +1,49 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2C2C2E"/>
+      <stop offset="100%" stop-color="#1C1C1E"/>
+    </linearGradient>
+    <linearGradient id="lockGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#D0D0D8"/>
+    </linearGradient>
+    <linearGradient id="shackleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E5E5EA"/>
+      <stop offset="100%" stop-color="#AEAEB2"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- 透明画布外圈让 macOS 看到 PNG 后能正确呈现圆角 -->
+  <!-- 圆角矩形铺满 1024x1024，半径 229 ≈ macOS Big Sur+ squircle 比例 22.37% -->
+  <rect x="0" y="0" width="1024" height="1024" rx="229" ry="229" fill="url(#bgGrad)"/>
+
+  <!-- Lock shackle -->
+  <path d="M 348 496 L 348 384 A 164 164 0 0 1 676 384 L 676 496"
+    fill="none"
+    stroke="url(#shackleGrad)"
+    stroke-width="72"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#dropShadow)"/>
+
+  <!-- Lock body -->
+  <rect x="276" y="480" width="472" height="356" rx="52" ry="52"
+    fill="url(#lockGrad)"
+    filter="url(#dropShadow)"/>
+
+  <!-- Keyhole -->
+  <circle cx="512" cy="632" r="52" fill="#2C2C2E"/>
+  <rect x="488" y="656" width="48" height="72" rx="10" ry="10" fill="#2C2C2E"/>
+
+  <!-- Keyboard keys hint -->
+  <rect x="320" y="768" width="88" height="40" rx="12" fill="#3A3A3C" opacity="0.6"/>
+  <rect x="428" y="768" width="168" height="40" rx="12" fill="#FF9F0A" opacity="0.85"/>
+  <rect x="616" y="768" width="88" height="40" rx="12" fill="#3A3A3C" opacity="0.6"/>
+
+  <!-- Gloss highlight -->
+  <rect x="300" y="496" width="420" height="110" rx="36" fill="white" opacity="0.07"/>
+</svg>
