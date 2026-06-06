@@ -73,35 +73,30 @@ codesign --force --deep --sign - "$APP_BUNDLE"
 
 echo "    .app 完成: $APP_BUNDLE ($(du -sh "$APP_BUNDLE" | awk '{print $1}'))"
 
-echo "==> 打包 dmg"
-rm -rf "$DMG_STAGE"
-mkdir -p "$DMG_STAGE"
-cp -R "$APP_BUNDLE" "$DMG_STAGE/"
-ln -s /Applications "$DMG_STAGE/Applications"
+echo "==> 打包 dmg（dmgbuild，直接写 .DS_Store，不依赖 Finder）"
 
 # 背景图：醒目展示「拖到应用程序」+「首次打开去隐私与安全性点仍要打开」
+BG_PNG="$BUILD_DIR/.dmg-background.png"
 if [ -f "$ROOT/Resources/DmgBackground.svg" ]; then
-    echo "==> 生成 dmg 背景图"
-    mkdir -p "$DMG_STAGE/.background"
     swift "$ROOT/scripts/svg2png.swift" \
-        "$ROOT/Resources/DmgBackground.svg" \
-        "$DMG_STAGE/.background/background.png" 640 480
+        "$ROOT/Resources/DmgBackground.svg" "$BG_PNG" 640 480
 fi
 
 # 首次打开说明（背景图已写明步骤，这里留终端一键命令等完整详情）
 README_NAME='首次打不开-点我看说明.txt'
-cat > "$DMG_STAGE/$README_NAME" <<'TXT'
+README_PATH="$BUILD_DIR/$README_NAME"
+cat > "$README_PATH" <<'TXT'
 LockType 打不开？这是正常的，处理一次即可
 ==========================================
 
-文件名就是最快办法：到「系统设置 → 隐私与安全性」滑到底，
+最快办法：到「系统设置 → 隐私与安全性」滑到底，
 点那行被拦住的 LockType 旁边的「仍要打开」按钮。
 
 本 App 未购买 Apple 开发者证书（未公证），首次打开会被系统拦一下，
 这是正常现象，只需处理「一次」，之后双击即可正常使用。
 
 —— 最快（推荐）：终端跑一行命令 ——
-打开「终端」，粘贴下面这行回车（拖进去后会无任何弹窗直接打开）：
+打开「终端」，粘贴下面这行回车（之后会无任何弹窗直接打开）：
 
     xattr -dr com.apple.quarantine /Applications/LockType.app
 
@@ -120,57 +115,17 @@ LockType 打不开？这是正常的，处理一次即可
 装好后菜单栏会出现一个锁图标，就成功了。
 TXT
 
-# 先做可读写 dmg，挂载后用 Finder 设置窗口布局（背景图 + 图标位置），再压缩成只读
-DMG_RW="$BUILD_DIR/$APP_NAME-rw.dmg"
-rm -f "$DMG_RW"
-hdiutil create \
-    -volname "$APP_NAME" \
-    -srcfolder "$DMG_STAGE" \
-    -ov -format UDRW -fs HFS+ \
-    "$DMG_RW" >/dev/null
-
-MOUNT_DIR="/Volumes/$APP_NAME"
-DEV=$(hdiutil attach -readwrite -noverify -noautoopen "$DMG_RW" | grep '^/dev/' | head -1 | awk '{print $1}')
-sleep 1
-
-# 用 AppleScript 摆位（首次运行 Terminal 可能要求授权「控制 Finder」，同意一次即可）
-if osascript <<OSA 2>/dev/null
-tell application "Finder"
-    tell disk "$APP_NAME"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {200, 120, 840, 620}
-        set vo to the icon view options of container window
-        set arrangement of vo to not arranged
-        set icon size of vo to 96
-        set text size of vo to 12
-        set background picture of vo to file ".background:background.png"
-        set position of item "$APP_NAME.app" of container window to {155, 175}
-        set position of item "Applications" of container window to {485, 175}
-        set position of item "$README_NAME" of container window to {320, 452}
-        close
-        open
-        update without registering applications
-        delay 1
-    end tell
-end tell
-OSA
-then
-    echo "    窗口布局已设置"
-else
-    echo "    ⚠️ 跳过窗口布局（Finder 自动化不可用，背景图与文件仍在 dmg 内）"
+# 确保 dmgbuild 可用（缺则自动装到用户目录，无需 sudo）
+if ! python3 -c "import dmgbuild" >/dev/null 2>&1; then
+    echo "    安装 dmgbuild（一次性）..."
+    python3 -m pip install --user --quiet dmgbuild
 fi
 
-chmod -Rf go-w "$MOUNT_DIR" 2>/dev/null || true
-sync
-hdiutil detach "$DEV" >/dev/null 2>&1 || hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
-
 rm -f "$DMG_PATH"
-hdiutil convert "$DMG_RW" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH" >/dev/null
-rm -f "$DMG_RW"
-rm -rf "$DMG_STAGE"
+export DMG_APP="$APP_BUNDLE" DMG_TXT="$README_PATH" DMG_BG="$BG_PNG"
+python3 -m dmgbuild -s "$ROOT/scripts/dmg_settings.py" "$APP_NAME" "$DMG_PATH"
+
+rm -f "$BG_PNG" "$README_PATH"
 
 echo ""
 echo "✅ 完成:"
