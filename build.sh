@@ -79,8 +79,17 @@ mkdir -p "$DMG_STAGE"
 cp -R "$APP_BUNDLE" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
 
-# 首次打开说明：文件名本身就是操作指引（不用打开就能照做），内容是完整详情
-README_NAME='⚠️打不开就去-系统设置·隐私与安全性·点"仍要打开".txt'
+# 背景图：醒目展示「拖到应用程序」+「首次打开去隐私与安全性点仍要打开」
+if [ -f "$ROOT/Resources/DmgBackground.svg" ]; then
+    echo "==> 生成 dmg 背景图"
+    mkdir -p "$DMG_STAGE/.background"
+    swift "$ROOT/scripts/svg2png.swift" \
+        "$ROOT/Resources/DmgBackground.svg" \
+        "$DMG_STAGE/.background/background.png" 640 480
+fi
+
+# 首次打开说明（背景图已写明步骤，这里留终端一键命令等完整详情）
+README_NAME='首次打不开-点我看说明.txt'
 cat > "$DMG_STAGE/$README_NAME" <<'TXT'
 LockType 打不开？这是正常的，处理一次即可
 ==========================================
@@ -111,12 +120,56 @@ LockType 打不开？这是正常的，处理一次即可
 装好后菜单栏会出现一个锁图标，就成功了。
 TXT
 
+# 先做可读写 dmg，挂载后用 Finder 设置窗口布局（背景图 + 图标位置），再压缩成只读
+DMG_RW="$BUILD_DIR/$APP_NAME-rw.dmg"
+rm -f "$DMG_RW"
 hdiutil create \
     -volname "$APP_NAME" \
     -srcfolder "$DMG_STAGE" \
-    -ov -format UDZO \
-    "$DMG_PATH" >/dev/null
+    -ov -format UDRW -fs HFS+ \
+    "$DMG_RW" >/dev/null
 
+MOUNT_DIR="/Volumes/$APP_NAME"
+DEV=$(hdiutil attach -readwrite -noverify -noautoopen "$DMG_RW" | grep '^/dev/' | head -1 | awk '{print $1}')
+sleep 1
+
+# 用 AppleScript 摆位（首次运行 Terminal 可能要求授权「控制 Finder」，同意一次即可）
+if osascript <<OSA 2>/dev/null
+tell application "Finder"
+    tell disk "$APP_NAME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {200, 120, 840, 620}
+        set vo to the icon view options of container window
+        set arrangement of vo to not arranged
+        set icon size of vo to 96
+        set text size of vo to 12
+        set background picture of vo to file ".background:background.png"
+        set position of item "$APP_NAME.app" of container window to {155, 175}
+        set position of item "Applications" of container window to {485, 175}
+        set position of item "$README_NAME" of container window to {320, 452}
+        close
+        open
+        update without registering applications
+        delay 1
+    end tell
+end tell
+OSA
+then
+    echo "    窗口布局已设置"
+else
+    echo "    ⚠️ 跳过窗口布局（Finder 自动化不可用，背景图与文件仍在 dmg 内）"
+fi
+
+chmod -Rf go-w "$MOUNT_DIR" 2>/dev/null || true
+sync
+hdiutil detach "$DEV" >/dev/null 2>&1 || hdiutil detach "$MOUNT_DIR" >/dev/null 2>&1 || true
+
+rm -f "$DMG_PATH"
+hdiutil convert "$DMG_RW" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH" >/dev/null
+rm -f "$DMG_RW"
 rm -rf "$DMG_STAGE"
 
 echo ""

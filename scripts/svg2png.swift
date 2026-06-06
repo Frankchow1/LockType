@@ -1,15 +1,17 @@
 #!/usr/bin/env swift
 // 用 WebKit 把 SVG 渲染成带透明背景的 PNG
-// 用法: svg2png.swift <input.svg> <output.png> <size>
+// 用法: svg2png.swift <input.svg> <output.png> <width> [height]
+//   省略 height 时为正方形（向后兼容图标渲染）
 
 import AppKit
 import WebKit
 
-guard CommandLine.arguments.count == 4,
-      let size = Int(CommandLine.arguments[3]) else {
-    FileHandle.standardError.write("Usage: svg2png.swift <input.svg> <output.png> <size>\n".data(using: .utf8)!)
+guard CommandLine.arguments.count >= 4,
+      let width = Int(CommandLine.arguments[3]) else {
+    FileHandle.standardError.write("Usage: svg2png.swift <input.svg> <output.png> <width> [height]\n".data(using: .utf8)!)
     exit(1)
 }
+let height = CommandLine.arguments.count >= 5 ? (Int(CommandLine.arguments[4]) ?? width) : width
 
 let svgPath = CommandLine.arguments[1]
 let pngPath = CommandLine.arguments[2]
@@ -23,7 +25,7 @@ let html = """
 <!DOCTYPE html>
 <html><head><style>
   html, body { margin:0; padding:0; background:transparent; }
-  svg { display:block; width:\(size)px; height:\(size)px; }
+  svg { display:block; width:\(width)px; height:\(height)px; }
 </style></head><body>\(svgData)</body></html>
 """
 
@@ -31,17 +33,18 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
 let cfg = WKWebViewConfiguration()
-let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: size, height: size), configuration: cfg)
+let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: width, height: height), configuration: cfg)
 webView.setValue(false, forKey: "drawsBackground")
 
 class Delegate: NSObject, WKNavigationDelegate {
     let pngPath: String
-    let size: Int
-    init(pngPath: String, size: Int) { self.pngPath = pngPath; self.size = size }
+    let width: Int
+    let height: Int
+    init(pngPath: String, width: Int, height: Int) { self.pngPath = pngPath; self.width = width; self.height = height }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let cfg = WKSnapshotConfiguration()
-            cfg.rect = NSRect(x: 0, y: 0, width: self.size, height: self.size)
+            cfg.rect = NSRect(x: 0, y: 0, width: self.width, height: self.height)
             webView.takeSnapshot(with: cfg) { image, error in
                 guard let img = image,
                       let tiff = img.tiffRepresentation,
@@ -57,7 +60,7 @@ class Delegate: NSObject, WKNavigationDelegate {
     }
 }
 
-let delegate = Delegate(pngPath: pngPath, size: size)
+let delegate = Delegate(pngPath: pngPath, width: width, height: height)
 webView.navigationDelegate = delegate
 webView.loadHTMLString(html, baseURL: nil)
 
