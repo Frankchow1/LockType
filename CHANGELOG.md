@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-06
+
+### Added
+- 🛡️ **兜底巡检定时器**：每 1.5 s（带 tolerance，几乎不耗电）无条件复查一次，兜住分布式通知被系统合并 / 丢弃导致「漏纠正」的最坏情况
+- 😴 **唤醒 / 解锁 / 切 Space 监听**：新增 `didWake`、`com.apple.screenIsUnlocked`、`activeSpaceDidChange`、`sessionDidBecomeActive`，这些时刻系统易重置输入法且通知最不可靠，统一再强制一次
+- 🔁 **回读重试**：`select()` 后 150 ms 回读确认，未生效再补一刀（解决 app 刚激活时 `TISSelectInputSource` 偶发不生效）
+- 🖥️ **通用二进制**：构建产物改为 `arm64 + x86_64`，Intel Mac 也能运行
+
+### Changed
+- 切 App 时由「激活后强制一次」改为「立即 + 350 ms 再补一次」，防止 app 延迟设回自己的输入法
+- 自身切换的屏蔽窗口 300 ms → 500 ms，覆盖分布式通知往返延迟，进一步避免回弹
+- 巡检定时器仅在启用锁定时运行，关闭即销毁，不空转
+
 ## [1.0.0] - 2026-06-06
 
 ### Added

@@ -19,16 +19,27 @@ echo "==> 清理"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-echo "==> 编译 (swiftc, release, arm64)"
+echo "==> 编译通用二进制 (swiftc, release, arm64 + x86_64)"
+BIN_ARM64="$BUILD_DIR/$APP_NAME-arm64"
+BIN_X86="$BUILD_DIR/$APP_NAME-x86_64"
+
 swiftc -O \
     -target arm64-apple-macos14.0 \
-    -framework AppKit \
-    -framework Carbon \
-    -framework ServiceManagement \
-    -o "$BIN" \
+    -framework AppKit -framework Carbon -framework ServiceManagement \
+    -o "$BIN_ARM64" \
     Sources/LockType/*.swift
 
-echo "    binary: $BIN ($(du -h "$BIN" | awk '{print $1}'))"
+swiftc -O \
+    -target x86_64-apple-macos14.0 \
+    -framework AppKit -framework Carbon -framework ServiceManagement \
+    -o "$BIN_X86" \
+    Sources/LockType/*.swift
+
+# 合并成 universal 二进制（Intel + Apple Silicon 都能跑）
+lipo -create "$BIN_ARM64" "$BIN_X86" -output "$BIN"
+rm -f "$BIN_ARM64" "$BIN_X86"
+
+echo "    binary: $BIN ($(du -h "$BIN" | awk '{print $1}')) [$(lipo -archs "$BIN")]"
 
 if [ -f "$ICON_SVG" ]; then
     echo "==> 生成 AppIcon.icns"

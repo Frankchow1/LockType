@@ -14,6 +14,7 @@
 - ⚙️ **零依赖**：纯 Swift + AppKit + Carbon TIS API，不引入任何第三方库
 - 🚀 **支持开机自启**：基于 `SMAppService` (macOS 13+)
 - 🎯 **行为正确**：监听系统输入法变化通知 + App 激活通知，去抖处理避免抖动
+- 🛡️ **双保险防漏纠正**：事件驱动为主 + 定时巡检兜底，并额外监听唤醒 / 解锁 / 切 Space，分布式通知被系统丢弃时也能拉回
 
 ## 📦 安装
 
@@ -96,10 +97,13 @@ LockType/
 ## 🧪 技术细节
 
 - **输入法 API**：用 Carbon 的 `TextInputSources`（`TISCopyCurrentKeyboardInputSource` / `TISSelectInputSource`）
-- **监听机制**：
+- **监听机制（事件为主、巡检兜底）**：
   - `kTISNotifySelectedKeyboardInputSourceChanged` 分布式通知 —— 任何 App 切换输入法都能感知
-  - `NSWorkspace.didActivateApplicationNotification` —— macOS 切 App 时会按 App 恢复输入法，所以要再强制一次
-- **去抖**：自己 `select()` 时设置 `suppressUntil` 时间戳，屏蔽 300 ms 内回弹的通知，避免无限循环
+  - `NSWorkspace.didActivateApplicationNotification` —— macOS 切 App 时会按 App 恢复输入法，激活后立即强制 + 350 ms 再补一次（防 App 延迟设回自己的输入法）
+  - `didWake` / `com.apple.screenIsUnlocked` / `activeSpaceDidChange` / `sessionDidBecomeActive` —— 唤醒、解锁、切 Space、用户切换后系统易重置输入法，且此刻通知最不可靠，统一再强制一次
+  - **巡检定时器**：每 1.5 s（带 tolerance，几乎不耗电）无条件复查一次，兜住分布式通知被系统合并 / 丢弃的最坏情况
+- **去抖 + 回读重试**：自己 `select()` 时设 `suppressUntil`（500 ms）屏蔽回弹通知避免循环；切换后 150 ms 回读确认，没生效再补一刀
+- **目标失效保护**：被锁定的输入法若被用户在系统设置里删除，自动解除锁定而非空转
 - **持久化**：`UserDefaults`（`LockType.targetID` / `LockType.enabled`）
 - **图标圆角**：用 WebKit 离屏渲染 SVG → 透明 PNG（`qlmanage` 不支持透明背景）
 
